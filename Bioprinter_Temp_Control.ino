@@ -1,9 +1,22 @@
 
+/*************************************************
+* Arduino based PID temperature controller using
+* 2 thermocouples and an LCD screen with 6 buttons
+* for my bioprinter to control the water pump and
+* bed thermoelectic generator which maintains the
+* correct temperature for the petri dish
+*
+* Author - Suron Woods
+* Email - suronw@yahoo.com
+* Date - 2014
+**************************************************/
+
 #include "Adafruit_MAX31855.h"
 #include <LiquidCrystal.h>
 #include "PID_v1.h"
 //#include <EEPROM.h>
 
+// pin assignments on Arduino Uno
 int thermoCLK = 16;
 int thermoDO = 17;
 int thermoCS1 = 18;
@@ -23,18 +36,18 @@ double Setpoint;
 double Input;
 double Output;
 double Poutput;
- 
+
 // pid tuning parameters
 double Kp = 100.0;
 double Ki = 1.0;
 double Kd = 5.0;
- 
+
 //// EEPROM addresses for persisted data
 //const int SpAddress = 0;
 //const int KpAddress = 8;
 //const int KiAddress = 16;
 //const int KdAddress = 24;
- 
+
 //Specify the links and initial tuning parameters
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, REVERSE);
 //PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
@@ -163,23 +176,23 @@ int adc_key_in  = 0;
 // read the buttons function
 int read_LCD_buttons()
 {
- adc_key_in = analogRead(0);      // read the value from the sensor 
+ adc_key_in = analogRead(0);      // read the value from the sensor
  // my buttons when read are centered at these valies: 0, 144, 329, 504, 741
  // we add approx 50 to those values and check to see if we are close
  if (adc_key_in > 1000) return btnNONE; // We make this the 1st option for speed reasons since it will be the most likely result
- if (adc_key_in < 50)   return btnRIGHT;  
- if (adc_key_in < 250)  return btnUP; 
- if (adc_key_in < 450)  return btnDOWN; 
- if (adc_key_in < 650)  return btnLEFT; 
- if (adc_key_in < 850)  return btnSELECT;  
+ if (adc_key_in < 50)   return btnRIGHT;
+ if (adc_key_in < 250)  return btnUP;
+ if (adc_key_in < 450)  return btnDOWN;
+ if (adc_key_in < 650)  return btnLEFT;
+ if (adc_key_in < 850)  return btnSELECT;
 
  return btnNONE;  // when all others fail, return this...
 }
-  
+
 void setup() {
-  
+
   //Serial.begin(9600);
-  
+
   // Create special charators
   lcd.createChar(0, dot);
   lcd.createChar(1, degree);
@@ -190,46 +203,46 @@ void setup() {
 //  lcd.createChar(6, uparrow);
   lcd.createChar(7, negitiveB);
   lcd.createChar(8, negitiveP);
-  
+
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
-  
+
   // Initiate PID
   myPID.SetTunings(Kp,Ki,Kd);
   myPID.SetMode(AUTOMATIC);
-  
+
   // Intro splash screen on display
   lcd.setCursor(0, 0);
   lcd.print("Bioprinter");
   lcd.setCursor(0, 1);
   lcd.print("Temp Control");
-  
+
   // wait for MAX chip to stabilize
   //delay(500);
-  
+
   //SetPsw = thermocouple2.readInternal();
-  
+
   // Pause splash screen for 2 secs
   delay(2000);
-  
+
   // Clear screen
   lcd.clear();
-  
+
 }
 
 void loop() {
 
     //Reading Bed Thermocouple
-    
+
      //Setpoint = thermocouple1.readInternal();
      Setpoint = Bvalue;                                  // Set the PID target to adjusted Bed target
 
      double BedTempC = thermocouple1.readCelsius();      // Read Bed thermocouple
-     
+
      Input = BedTempC;
-     
+
      myPID.Compute();                                    // Caclulate how high to turn Bed on
-     
+
      if (Benable)
      {
        analogWrite(BedSW, Output);                          // Turn Bed on this amount
@@ -240,12 +253,12 @@ void loop() {
      }
 
      //Reading Pump Thermocouple
-     
+
      //SetPsw = thermocouple2.readInternal() + 2.0;
      SetPsw = Pvalue;                                    // Set the PID target to adjusted Pump target
-     
+
      double PumpTempC = thermocouple2.readCelsius();     // Read Bed thermocouple
-     
+
      if (Penable)
      {
        if(PumpTempC > SetPsw)                              // Temp above limit
@@ -267,12 +280,12 @@ void loop() {
      {
        analogWrite(PumpSW, 0);                      // Turn Pump off
      }
-  
+
    lcd_key = read_LCD_buttons();                         // Read the buttons
-   
+
    switch (lcd_key)                                      // Depending on which button was pushed
    {
-     case btnRIGHT:       
+     case btnRIGHT:
          if (EditMode)                                  // If in Edit Mode, select Pump value for editing, reset edit timer
          {
            Evalue = true;
@@ -284,12 +297,12 @@ void loop() {
            CurTime = millis();
          }
          break;
-       
+
      case btnLEFT:
          if (EditMode)                                  // If in Edit Mode, select Bed value for editing, reset edit timer
          {
            Evalue = false;
-           CurTime = millis(); 
+           CurTime = millis();
          }
          else                                            // If not in Edit Mode, Enter Edit Mode and start edit timer
          {
@@ -297,7 +310,7 @@ void loop() {
            CurTime = millis();
          }
        break;
-       
+
      case btnUP:
          if (EditMode)                                  // If in Edit Mode, raise selected value by amount, reset edit timer
          {
@@ -324,7 +337,7 @@ void loop() {
            }
          }
        break;
-       
+
      case btnDOWN:
          if (EditMode)                                  // If in Edit Mode, lower selected value by amount, reset edit timer
          {
@@ -337,7 +350,7 @@ void loop() {
            {
              Bvalue = Bvalue - AdjAmt;
              CurTime = millis();
-           } 
+           }
          }
          else                                            // If not in Edit Mode, toggle enable Pump
          {
@@ -351,7 +364,7 @@ void loop() {
            }
          }
        break;
-       
+
      case btnSELECT:
          if (EditMode)                                   // If in Edit Mode, select button exits
          {
@@ -363,17 +376,17 @@ void loop() {
            CurTime = millis();
          }
        break;
-       
+
        case btnNONE:
-       
+
          if (EditMode)                                   // While in Edit Mode, exit when times up
          {
            if (millis() > CurTime + Timeout)
            {
              EditMode = false;
            }
-         } 
-         break; 
+         }
+         break;
    }
 
 //Start of display code
@@ -381,7 +394,7 @@ void loop() {
   {
     lcd.clear();              //Clear screen
     lcd.setCursor(0, 0);      //First line
-    
+
     lcd.print(" Bed ");
     lcd.write(byte(2));       //Target symbol
     lcd.print(" ");
@@ -395,9 +408,9 @@ void loop() {
     }
     lcd.print(" Pump ");
     lcd.write(byte(2));       //Target sumbol
-    
+
     lcd.setCursor(0, 1);      //Second Line
-    
+
     lcd.print(Bvalue,1);
     lcd.write(byte(1));       //Degree symbol
     lcd.print("C");
@@ -405,7 +418,7 @@ void loop() {
     lcd.print(Pvalue,1);
     lcd.write(byte(1));       //Degree symbol
     lcd.print("C");
-  } 
+  }
   else
   {
     lcd.clear();
@@ -433,7 +446,7 @@ void loop() {
     lcd.print(Bvalue,1);
     lcd.write(byte(1));       //Degree symbol
     lcd.print("C");
-    
+
     lcd.setCursor(0, 1);
     if (Penable)              //Pump is enabled
       {
@@ -459,6 +472,6 @@ void loop() {
     lcd.write(byte(1));       //Degree symbol
     lcd.print("C");
   }
-  
+
    delay(500);                //Extra time at end of loop
 }
